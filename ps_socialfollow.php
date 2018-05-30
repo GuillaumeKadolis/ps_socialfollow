@@ -61,6 +61,7 @@ class Ps_Socialfollow extends Module implements WidgetInterface
     {
         return (parent::install() &&
             $this->installDB() &&
+            $this->installDefaultData() &&
             $this->installTab() &&
             $this->registerHook('displayFooter'));
     }
@@ -90,6 +91,7 @@ class Ps_Socialfollow extends Module implements WidgetInterface
                     `id_socialfollow_network` int(10) unsigned NOT NULL AUTO_INCREMENT,
                     `class` varchar(255) NOT NULL,
                     `position` int(10) unsigned NOT NULL DEFAULT \'0\',
+                    `active` tinyint(1) UNSIGNED NOT NULL DEFAULT \'0\',
                     PRIMARY KEY (`id_socialfollow_network`) ) 
                     ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
                 ');
@@ -98,6 +100,7 @@ class Ps_Socialfollow extends Module implements WidgetInterface
             'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'socialfollow_network_lang` (
                     `id_socialfollow_network` int(10) unsigned NOT NULL,
                     `id_lang` int(10) unsigned NOT NULL,
+                    `label` varchar(255) NOT NULL,
                     `name` varchar(255) NOT NULL,
                     `description` varchar(255) NOT NULL,
                     PRIMARY KEY (`id_socialfollow_network`, `id_lang`) ) 
@@ -109,7 +112,8 @@ class Ps_Socialfollow extends Module implements WidgetInterface
                     `id_socialfollow` int(10) unsigned NOT NULL AUTO_INCREMENT,
                     `id_socialfollow_network` int(10) unsigned NOT NULL,
                     `id_shop` int(10) unsigned NOT NULL,
-                    PRIMARY KEY (`id_socialfollow`, `id_socialfollow_network`, `id_shop`) ) 
+                    PRIMARY KEY (`id_socialfollow`),
+                    UNIQUE (`id_socialfollow_network`, `id_shop`) ) 
                     ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
                 ');
 
@@ -134,6 +138,39 @@ class Ps_Socialfollow extends Module implements WidgetInterface
             DROP TABLE IF EXISTS `'._DB_PREFIX_.'socialfollow_network`, `'._DB_PREFIX_.'socialfollow_network_lang`, 
                 `'._DB_PREFIX_.'socialfollow`, `'._DB_PREFIX_.'socialfollow_lang`;
         ');
+    }
+
+    /**
+     * Add default data into DB
+     * @return bool
+     * @throws PrestaShopException
+     */
+    protected function installDefaultData()
+    {
+        $return = true;
+
+        $datas = [['class' => 'facebook','label'=>'Facebook URL','name'=>'Facebook','description'=>'Your Facebook fan page.'],
+                    ['class' => 'twitter','label'=>'Twitter URL','name'=>'Twitter','description'=>'Your official Twitter account.'],
+                    ['class' => 'rss','label'=>'RSS URL','name'=>'Rss','description'=>'The RSS feed of your choice (your blog, your store, etc.).'],
+                    ['class' => 'youtube','label'=>'YouTube URL','name'=>'YouTube','description'=>'Your official YouTube account.'],
+                    ['class' => 'googleplus','label'=>'Google+ URL','name'=>'Google +','description'=>'Your official Google+ page.'],
+                    ['class' => 'pinterest','label'=>'Pinterest URL','name'=>'Pinterest','description'=>'Your official Pinterest account.'],
+                    ['class' => 'vimeo','label'=>'Vimeo URL','name'=>'Vimeo','description'=>'Your official Vimeo account'],
+                    ['class' => 'instagram','label'=>'Instagram URL','name'=>'Instagram','description'=>'Your official Instagram account'],
+                ];
+
+        foreach ($datas as $key => $data){
+            $network = new SocialFollowNetwork();
+            $network->class = $data['class'];
+            $network->label = $data['label'];
+            $network->name = $data['description'];
+            $network->description = $data['description'];
+            $network->active = 0;
+            $network->position = $key;
+            $network->save();
+        }
+
+        return $return;
     }
 
     /**
