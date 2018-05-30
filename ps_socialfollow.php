@@ -38,7 +38,7 @@ class Ps_Socialfollow extends Module implements WidgetInterface
     {
         $this->name = 'ps_socialfollow';
         $this->author = 'PrestaShop';
-        $this->version = '2.0.0';
+        $this->version = '3.0.0';
 
         $this->bootstrap = true;
         parent::__construct();
@@ -51,31 +51,146 @@ class Ps_Socialfollow extends Module implements WidgetInterface
         $this->templateFile = 'module:ps_socialfollow/ps_socialfollow.tpl';
     }
 
+    /**
+     * Install()
+     * @return bool
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public function install()
     {
         return (parent::install() &&
-            Configuration::updateValue('BLOCKSOCIAL_FACEBOOK', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_TWITTER', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_RSS', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_YOUTUBE', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_GOOGLE_PLUS', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_PINTEREST', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_VIMEO', '') &&
-            Configuration::updateValue('BLOCKSOCIAL_INSTAGRAM', '') &&
+            $this->installDB() &&
+            $this->installTab() &&
             $this->registerHook('displayFooter'));
     }
 
+    /**
+     * Uninstall()
+     * @return bool
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
     public function uninstall()
     {
-        return (Configuration::deleteByName('BLOCKSOCIAL_FACEBOOK') &&
-            Configuration::deleteByName('BLOCKSOCIAL_TWITTER') &&
-            Configuration::deleteByName('BLOCKSOCIAL_RSS') &&
-            Configuration::deleteByName('BLOCKSOCIAL_YOUTUBE') &&
-            Configuration::deleteByName('BLOCKSOCIAL_GOOGLE_PLUS') &&
-            Configuration::deleteByName('BLOCKSOCIAL_PINTEREST') &&
-            Configuration::deleteByName('BLOCKSOCIAL_VIMEO') &&
-            Configuration::deleteByName('BLOCKSOCIAL_INSTAGRAM') &&
+        return (
+            $this->uninstallDB() &&
+            $this->uninstallTab() &&
             parent::uninstall());
+    }
+
+    /**
+     * Install DataBase
+     * @return bool
+     */
+    protected function installDB()
+    {
+        $res = (bool)Db::getInstance()->execute(
+            'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'socialfollow_network` (
+                    `id_socialfollow_network` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                    `class` varchar(255) NOT NULL,
+                    `position` int(10) unsigned NOT NULL DEFAULT \'0\',
+                    PRIMARY KEY (`id_socialfollow_network`) ) 
+                    ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
+                ');
+
+        $res &= Db::getInstance()->execute(
+            'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'socialfollow_network_lang` (
+                    `id_socialfollow_network` int(10) unsigned NOT NULL,
+                    `id_lang` int(10) unsigned NOT NULL,
+                    `name` varchar(255) NOT NULL,
+                    `description` varchar(255) NOT NULL,
+                    PRIMARY KEY (`id_socialfollow_network`, `id_lang`) ) 
+                    ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
+                ');
+
+        $res &= Db::getInstance()->execute(
+            'CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'socialfollow` (
+                    `id_socialfollow` int(10) unsigned NOT NULL AUTO_INCREMENT,
+                    `id_socialfollow_network` int(10) unsigned NOT NULL,
+                    `id_shop` int(10) unsigned NOT NULL,
+                    PRIMARY KEY (`id_socialfollow`, `id_socialfollow_network`, `id_shop`) ) 
+                    ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
+                ');
+
+        $res &= Db::getInstance()->execute(
+            ' CREATE TABLE IF NOT EXISTS `'._DB_PREFIX_.'socialfollow_lang` (
+                      `id_socialfollow` int(10) unsigned NOT NULL,
+                      `id_lang` int(10) unsigned NOT NULL,
+                      `url` varchar(255) NOT NULL,
+                      PRIMARY KEY (`id_socialfollow`,`id_lang`) ) 
+                    ENGINE='._MYSQL_ENGINE_.' DEFAULT CHARSET=UTF8;
+                ');
+
+        return $res;
+    }
+
+    /**
+     * Drop tables
+     * @return bool
+     */
+    protected function uninstallDB(){
+        return Db::getInstance()->execute('
+            DROP TABLE IF EXISTS `'._DB_PREFIX_.'socialfollow_network`, `'._DB_PREFIX_.'socialfollow_network_lang`, 
+                `'._DB_PREFIX_.'socialfollow`, `'._DB_PREFIX_.'socialfollow_lang`;
+        ');
+    }
+
+    /**
+     * Register Administration tabs
+     *
+     * @param $tabName
+     * @param $tabClass
+     * @param $id_parent
+     * @return bool
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
+    public function installTab()
+    {
+        $return = null;
+        foreach ($this->controllers as $controller_name) {
+            $tab = new Tab();
+            $tab->active = 1;
+            $tab->class_name = $controller_name;
+            $tab->name = array();
+            foreach (Language::getLanguages(true) as $lang) {
+                $tab->name[$lang['id_lang']] = $this->name;
+            }
+            $tab->id_parent = -1;
+            $tab->module = $this->name;
+            if ($tab->add() == true) {
+                $return &= true;
+            } else {
+                $return &= false;
+            }
+        }
+        return $return;
+    }
+
+    /**
+     * Remove Administration tabs
+     * @return bool|null
+     * @throws PrestaShopDatabaseException
+     * @throws PrestaShopException
+     */
+    protected function uninstallTab()
+    {
+        foreach ($this->controllers as $controller_name) {
+            $tabRepository = $this->get('prestashop.core.admin.tab.repository');
+            $id_tab = (int)$tabRepository->findOneIdByClassName($controller_name);
+            if ($id_tab) {
+                $tab = new Tab($id_tab);
+                if (Validate::isLoadedObject($tab)) {
+                    return ($tab->delete());
+                } else {
+                    return false;
+                }
+            } else {
+                return true;
+            }
+        }
+        return null;
     }
 
     public function getContent()
