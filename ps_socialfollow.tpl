@@ -29,7 +29,9 @@
     <h4>{l s='Follow us' d='Modules.Socialfollow.Shop'}</h4>
     <ul>
       {foreach from=$social_links item='social_link'}
+        {if $social_link.url && $social_link.url != ''}
         <li class="{$social_link.class}"><a href="{$social_link.url}">{$social_link.title}</a></li>
+        {/if}
       {/foreach}
     </ul>
   </div>
